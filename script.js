@@ -1,7 +1,8 @@
 const readyBtn = document.getElementById("ready");
 const pseudoInput = document.getElementById("pseudo");
-const waitingDiv = document.getElementById("waiting");
+const avatarInput = document.getElementById("avatar");
 const lobbyDiv = document.getElementById("lobby");
+const waitingDiv = document.getElementById("waiting");
 const avatarsContainer = document.getElementById("avatarsContainer");
 
 const playerId = 'player_' + Date.now();
@@ -9,8 +10,15 @@ const playersRef = firebase.database().ref('lobby/players');
 
 readyBtn.onclick = () => {
   const pseudo = pseudoInput.value.trim();
-  if (!pseudo) {
-    alert("Entre ton pseudo !");
+  const file = avatarInput.files[0];
+
+  if (!pseudo || !file) {
+    alert("Entre ton pseudo et choisis une photo !");
+    return;
+  }
+
+  if (!file.type.startsWith("image/")) {
+    alert("Choisis un fichier image !");
     return;
   }
 
@@ -18,17 +26,28 @@ readyBtn.onclick = () => {
   lobbyDiv.style.display = "none";
   waitingDiv.style.display = "block";
 
-  // Envoyer pseudo + avatar temporaire
-  playersRef.child(playerId).set({
-    pseudo: pseudo,
-    avatar: "https://via.placeholder.com/100"
-  }, error => {
-    if (error) alert("Erreur Firebase : " + error);
-    else console.log("Envoyé à Firebase !");
-  });
+  // Lire l'image et convertir en base64
+  const reader = new FileReader();
+
+  reader.onload = function(e) {
+    const avatarBase64 = e.target.result; // La vraie image convertie
+    // Envoyer pseudo + avatar à Firebase
+    playersRef.child(playerId).set({
+      pseudo: pseudo,
+      avatar: avatarBase64
+    }, error => {
+      if (error) alert("Erreur Firebase : " + error);
+    });
+  };
+
+  reader.onerror = function() {
+    alert("Erreur lors de la lecture de l'image. Réessaie !");
+  };
+
+  reader.readAsDataURL(file); // <-- ceci convertit en base64
 };
 
-// Écouter en temps réel
+// Afficher les avatars en temps réel
 playersRef.on('value', snapshot => {
   avatarsContainer.innerHTML = "";
   const players = snapshot.val();
@@ -37,7 +56,7 @@ playersRef.on('value', snapshot => {
   Object.keys(players).forEach(id => {
     const player = players[id];
     const img = document.createElement("img");
-    img.src = player.avatar;
+    img.src = player.avatar; // base64 affiché directement
     img.title = player.pseudo;
     avatarsContainer.appendChild(img);
   });
