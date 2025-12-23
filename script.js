@@ -26,8 +26,8 @@ readyBtn.onclick = () => {
   const file = avatarInput.files[0];
   totalPlayers = parseInt(totalPlayersInput.value);
 
-  if (!pseudo || !file || !totalPlayers || totalPlayers < 2) {
-    alert("Pseudo, photo et nombre de joueurs (minimum 2) sont obligatoires !");
+  if (!pseudo || !file || !totalPlayers) {
+    alert("Pseudo, photo et nombre de joueurs sont obligatoires !");
     return;
   }
 
@@ -58,26 +58,26 @@ readyBtn.onclick = () => {
 };
 
 // ----------------- Affichage avatars -----------------
-playersRef.on('value', snapshot => {
-  avatarsContainer.innerHTML = "";
-  const players = snapshot.val() || {};
+playersRef.on('child_added', snapshot => {
+  const player = snapshot.val();
+  const id = snapshot.key;
 
-  Object.keys(players).forEach(id => {
-    const player = players[id];
-    const img = document.createElement("img");
-    img.src = player.avatar;
-    img.title = player.pseudo;
-    avatarsContainer.appendChild(img);
+  const img = document.createElement("img");
+  img.src = player.avatar;
+  img.title = player.pseudo;
+  avatarsContainer.appendChild(img);
 
-    playerNamesCache[id] = player.pseudo;
-  });
+  playerNamesCache[id] = player.pseudo;
 
-  const total = Object.keys(players).length;
+  // Vérifier si le lobby est complet
   lobbyRef.child('totalPlayers').once('value').then(snap => {
     const totalExpected = snap.val();
-    if(totalExpected && total === totalExpected){
-      initMJActions(players);
-    }
+    playersRef.once('value').then(allSnap => {
+      const total = Object.keys(allSnap.val() || {}).length;
+      if(totalExpected && total === totalExpected){
+        initMJActions(allSnap.val());
+      }
+    });
   });
 });
 
@@ -149,24 +149,22 @@ function startBingo(){
     waitingDiv.appendChild(bingoContainer);
   }
 
-  // Écoute chaque joueur ajouté ou mis à jour individuellement
+  // Ajouter actions individuelles
   actionsRef.on('child_added', playerSnap => {
     const playerIdKey = playerSnap.key;
     const playerActions = playerSnap.val();
     if(!playerActions) return;
 
-    // Container pour ce joueur
     const playerDiv = document.createElement("div");
     playerDiv.className = "playerActions";
     const title = document.createElement("h3");
     title.textContent = playerNamesCache[playerIdKey] || playerIdKey;
     playerDiv.appendChild(title);
-
     bingoContainer.appendChild(playerDiv);
 
     Object.keys(playerActions).forEach(aid => {
       const action = playerActions[aid];
-      if(playerIdKey === playerId) return; // pas ses propres actions
+      if(playerIdKey === playerId) return;
 
       const actionDiv = document.createElement("div");
       actionDiv.textContent = action.text;
@@ -184,25 +182,25 @@ function startBingo(){
     });
   });
 
-  // Écoute les changements pour mettre à jour style sans reconstruire
+  // Mettre à jour style sans reconstruire
   actionsRef.on('child_changed', playerSnap => {
     const playerIdKey = playerSnap.key;
     const playerActions = playerSnap.val();
     if(!playerActions) return;
 
-    Object.keys(playerActions).forEach(aid => {
-      const action = playerActions[aid];
-      const divs = bingoContainer.querySelectorAll('.playerActions');
-      divs.forEach(pd => {
-        if(pd.querySelector('h3')?.textContent === (playerNamesCache[playerIdKey] || playerIdKey)){
+    const divs = bingoContainer.querySelectorAll('.playerActions');
+    divs.forEach(pd => {
+      if(pd.querySelector('h3')?.textContent === (playerNamesCache[playerIdKey] || playerIdKey)){
+        Object.keys(playerActions).forEach(aid => {
+          const action = playerActions[aid];
           const actionDivs = pd.querySelectorAll('div');
           actionDivs.forEach(ad => {
             if(ad.textContent === action.text){
               ad.style.textDecoration = action.done ? "line-through" : "none";
             }
           });
-        }
-      });
+        });
+      }
     });
   });
 }
@@ -211,4 +209,5 @@ function startBingo(){
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
+
 
