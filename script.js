@@ -1,8 +1,23 @@
+// Tableau local pour stocker les avatars avant affichage
 let avatars = [];
 
-document.getElementById("ready").onclick = () => {
-  const pseudo = document.getElementById("pseudo").value;
-  const avatarInput = document.getElementById("avatar");
+// Récupérer les éléments HTML
+const readyBtn = document.getElementById("ready");
+const pseudoInput = document.getElementById("pseudo");
+const avatarInput = document.getElementById("avatar");
+const lobbyDiv = document.getElementById("lobby");
+const waitingDiv = document.getElementById("waiting");
+const avatarsContainer = document.getElementById("avatarsContainer");
+
+// Créer un identifiant unique pour ce joueur
+const playerId = 'player_' + Date.now();
+
+// Référence Firebase pour les joueurs du lobby
+const playersRef = database.ref('lobby/players');
+
+// Quand le joueur clique sur "Je suis prêt !"
+readyBtn.onclick = () => {
+  const pseudo = pseudoInput.value.trim();
 
   if (!pseudo || !avatarInput.files || avatarInput.files.length === 0) {
     alert("Entre ton pseudo et choisis une photo !");
@@ -11,32 +26,46 @@ document.getElementById("ready").onclick = () => {
 
   const avatarFile = avatarInput.files[0];
 
-  // Vérifie que c'est bien une image
+  // Vérifier que c'est bien une image
   if (!avatarFile.type.startsWith("image/")) {
     alert("Choisis un fichier image !");
     return;
   }
 
-  // Crée un objet URL au lieu de FileReader (plus fiable sur mobile)
+  // Créer un URL temporaire pour afficher la photo localement
   const avatarURL = URL.createObjectURL(avatarFile);
 
-  avatars.push({ pseudo, src: avatarURL });
+  // Masquer le lobby et afficher la waiting room
+  lobbyDiv.style.display = "none";
+  waitingDiv.style.display = "block";
 
-  // Affiche la waiting room
-  showWaitingRoom();
+  // Envoyer pseudo + avatar à Firebase
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    playersRef.child(playerId).set({
+      pseudo: pseudo,
+      avatar: e.target.result // on envoie la photo en base64
+    });
+  };
+  reader.readAsDataURL(avatarFile);
 };
 
-function showWaitingRoom() {
-  document.getElementById("lobby").style.display = "none";
-  document.getElementById("waiting").style.display = "block";
+// Écouter les changements dans le lobby en temps réel
+playersRef.on('value', (snapshot) => {
+  avatarsContainer.innerHTML = ""; // vider le container
+  const players = snapshot.val();
+  if (!players) return;
 
-  const container = document.getElementById("avatarsContainer");
-  container.innerHTML = "";
-
-  avatars.forEach(player => {
+  Object.keys(players).forEach(id => {
+    const player = players[id];
     const img = document.createElement("img");
-    img.src = player.src;
+    img.src = player.avatar;
     img.title = player.pseudo;
-    container.appendChild(img);
+    avatarsContainer.appendChild(img);
   });
-}
+});
+
+// Supprimer le joueur de Firebase quand il ferme la page
+window.addEventListener("beforeunload", () => {
+  playersRef.child(playerId).remove();
+});
