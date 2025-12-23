@@ -18,6 +18,7 @@ const actionsRef = firebase.database().ref('lobby/actions');
 
 let totalPlayers = 0;
 let playerNamesCache = {}; // cache des pseudos
+let bingoContainer = null;
 
 // ----------------- Rejoindre le lobby -----------------
 readyBtn.onclick = () => {
@@ -50,7 +51,7 @@ readyBtn.onclick = () => {
 
     lobbyRef.child('totalPlayers').set(totalPlayers);
 
-    // Mettre à jour le cache pour ce joueur
+    // Mettre à jour cache pour ce joueur
     playerNamesCache[playerId] = pseudo;
   };
   reader.readAsDataURL(file);
@@ -59,8 +60,7 @@ readyBtn.onclick = () => {
 // ----------------- Affichage avatars -----------------
 playersRef.on('value', snapshot => {
   avatarsContainer.innerHTML = "";
-  const players = snapshot.val();
-  if (!players) return;
+  const players = snapshot.val() || {};
 
   Object.keys(players).forEach(id => {
     const player = players[id];
@@ -69,11 +69,9 @@ playersRef.on('value', snapshot => {
     img.title = player.pseudo;
     avatarsContainer.appendChild(img);
 
-    // Mettre à jour cache pseudos
     playerNamesCache[id] = player.pseudo;
   });
 
-  // Vérifier si le lobby est complet
   const total = Object.keys(players).length;
   lobbyRef.child('totalPlayers').once('value').then(snap => {
     const totalExpected = snap.val();
@@ -127,7 +125,6 @@ function initMJActions(players){
       }
     });
 
-    // 3 actions pré-remplies pour les autres joueurs
     playerIds.forEach(id => {
       if(id === MJId) return;
       for(let i=1; i<=3; i++){
@@ -144,51 +141,68 @@ function initMJActions(players){
   };
 }
 
-// ----------------- Bingo temps réel -----------------
+// ----------------- Bingo temps réel optimisé -----------------
 function startBingo(){
-  let bingoContainer = document.getElementById("bingoContainer");
   if(!bingoContainer){
     bingoContainer = document.createElement("div");
     bingoContainer.id = "bingoContainer";
     waitingDiv.appendChild(bingoContainer);
   }
 
-  actionsRef.on('value', snapshot => {
-    bingoContainer.innerHTML = "";
-    const allActions = snapshot.val();
-    if(!allActions) return;
+  // Écoute chaque joueur ajouté ou mis à jour individuellement
+  actionsRef.on('child_added', playerSnap => {
+    const playerIdKey = playerSnap.key;
+    const playerActions = playerSnap.val();
+    if(!playerActions) return;
 
-    Object.keys(allActions).forEach(player => {
-      const playerActions = allActions[player];
-      if(!playerActions) return;
+    // Container pour ce joueur
+    const playerDiv = document.createElement("div");
+    playerDiv.className = "playerActions";
+    const title = document.createElement("h3");
+    title.textContent = playerNamesCache[playerIdKey] || playerIdKey;
+    playerDiv.appendChild(title);
 
-      const playerDiv = document.createElement("div");
-      playerDiv.className = "playerActions";
+    bingoContainer.appendChild(playerDiv);
 
-      const title = document.createElement("h3");
-      title.textContent = playerNamesCache[player] || player;
-      playerDiv.appendChild(title);
+    Object.keys(playerActions).forEach(aid => {
+      const action = playerActions[aid];
+      if(playerIdKey === playerId) return; // pas ses propres actions
 
-      Object.keys(playerActions).forEach(aid => {
-        const action = playerActions[aid];
-        if(player === playerId) return; // pas ses propres actions
+      const actionDiv = document.createElement("div");
+      actionDiv.textContent = action.text;
+      actionDiv.style.cursor = "pointer";
+      actionDiv.style.textDecoration = action.done ? "line-through" : "none";
 
-        const actionDiv = document.createElement("div");
-        actionDiv.textContent = action.text;
-        actionDiv.style.textDecoration = action.done ? "line-through" : "none";
-        actionDiv.style.cursor = "pointer";
+      actionDiv.onclick = () => {
+        if(!action.done){
+          actionsRef.child(playerIdKey).child(aid).update({done:true});
+          new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
+        }
+      };
 
-        actionDiv.onclick = () => {
-          if(!action.done){
-            actionsRef.child(player).child(aid).update({done:true});
-            new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
-          }
-        };
+      playerDiv.appendChild(actionDiv);
+    });
+  });
 
-        playerDiv.appendChild(actionDiv);
+  // Écoute les changements pour mettre à jour style sans reconstruire
+  actionsRef.on('child_changed', playerSnap => {
+    const playerIdKey = playerSnap.key;
+    const playerActions = playerSnap.val();
+    if(!playerActions) return;
+
+    Object.keys(playerActions).forEach(aid => {
+      const action = playerActions[aid];
+      const divs = bingoContainer.querySelectorAll('.playerActions');
+      divs.forEach(pd => {
+        if(pd.querySelector('h3')?.textContent === (playerNamesCache[playerIdKey] || playerIdKey)){
+          const actionDivs = pd.querySelectorAll('div');
+          actionDivs.forEach(ad => {
+            if(ad.textContent === action.text){
+              ad.style.textDecoration = action.done ? "line-through" : "none";
+            }
+          });
+        }
       });
-
-      bingoContainer.appendChild(playerDiv);
     });
   });
 }
@@ -197,4 +211,3 @@ function startBingo(){
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
-
