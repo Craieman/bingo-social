@@ -1,3 +1,4 @@
+// Éléments HTML
 const readyBtn = document.getElementById("ready");
 const pseudoInput = document.getElementById("pseudo");
 const avatarInput = document.getElementById("avatar");
@@ -5,9 +6,13 @@ const lobbyDiv = document.getElementById("lobby");
 const waitingDiv = document.getElementById("waiting");
 const avatarsContainer = document.getElementById("avatarsContainer");
 
+// ID unique du joueur
 const playerId = 'player_' + Date.now();
+
+// Référence Firebase pour les joueurs du lobby
 const playersRef = firebase.database().ref('lobby/players');
 
+// Quand le joueur clique sur "Je suis prêt !"
 readyBtn.onclick = () => {
   const pseudo = pseudoInput.value.trim();
   const file = avatarInput.files[0];
@@ -22,20 +27,30 @@ readyBtn.onclick = () => {
     return;
   }
 
+  // Masquer le lobby et afficher la waiting room
   lobbyDiv.style.display = "none";
   waitingDiv.style.display = "block";
 
+  // Lire l'image en base64 et envoyer dans Firebase
   const reader = new FileReader();
   reader.onload = function(e) {
-    // On envoie la photo convertie en base64
+    const avatarBase64 = e.target.result;
+
+    // Écrire dans Firebase
     playersRef.child(playerId).set({
       pseudo: pseudo,
-      avatar: e.target.result
+      avatar: avatarBase64
+    }, error => {
+      if (error) {
+        alert("Erreur lors de l'envoi à Firebase : " + error);
+      }
     });
   };
+
   reader.onerror = function() {
     alert("Erreur lors de la lecture de l'image. Réessaie !");
   };
+
   reader.readAsDataURL(file);
 };
 
@@ -54,7 +69,8 @@ playersRef.on('value', snapshot => {
   });
 });
 
-// Supprimer le joueur quand il quitte
+// Supprimer le joueur de Firebase quand il quitte
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
+
