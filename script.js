@@ -18,7 +18,7 @@ const actionsRef = firebase.database().ref('lobby/actions');
 
 let totalPlayers = 0;
 
-// Quand le joueur clique "Je suis prêt !"
+// ----------------- Rejoindre le lobby -----------------
 readyBtn.onclick = () => {
   const pseudo = pseudoInput.value.trim();
   const file = avatarInput.files[0];
@@ -28,7 +28,6 @@ readyBtn.onclick = () => {
     alert("Pseudo, photo et nombre de joueurs sont obligatoires !");
     return;
   }
-
   if (!file.type.startsWith("image/")) {
     alert("Choisis un fichier image !");
     return;
@@ -37,26 +36,22 @@ readyBtn.onclick = () => {
   lobbyDiv.style.display = "none";
   waitingDiv.style.display = "block";
 
-  // Lire l'image en base64
   const reader = new FileReader();
   reader.onload = function(e) {
     const avatarBase64 = e.target.result;
-    console.log("Avatar base64 :", avatarBase64.slice(0,50));
 
-    // Écrire dans Firebase
     playersRef.child(playerId).set({
       pseudo,
       avatar: avatarBase64,
       ready: true
     });
 
-    // Enregistrer totalPlayers si MJ
     lobbyRef.child('totalPlayers').set(totalPlayers);
   };
   reader.readAsDataURL(file);
 };
 
-// Affichage des avatars en temps réel
+// ----------------- Affichage avatars -----------------
 playersRef.on('value', snapshot => {
   avatarsContainer.innerHTML = "";
   const players = snapshot.val();
@@ -80,15 +75,15 @@ playersRef.on('value', snapshot => {
   });
 });
 
-// Fonction pour initialiser les actions du MJ
+// ----------------- Phase actions MJ -----------------
 let actionsInitialized = false;
 function initMJActions(players){
   if(actionsInitialized) return;
   actionsInitialized = true;
 
   const playerIds = Object.keys(players);
-  const MJId = playerIds[0]; // Ici, on prend le premier comme MJ (tu peux adapter)
-  const N = 3; // Nombre d'actions pour le MJ
+  const MJId = playerIds[0]; // MJ par défaut = premier joueur
+  const N = 3; // nombre d'actions du MJ
   const candidates = playerIds.filter(id => id !== MJId);
   const selected = [];
 
@@ -97,7 +92,6 @@ function initMJActions(players){
     if(!selected.includes(rand)) selected.push(rand);
   }
 
-  // Montrer interface pour écrire les actions du MJ
   actionsPhaseDiv.style.display = "block";
   actionsContainer.innerHTML = "";
 
@@ -113,26 +107,85 @@ function initMJActions(players){
 
   submitActionsBtn.onclick = () => {
     const inputs = actionsContainer.querySelectorAll("input");
-    inputs.forEach((input, index) => {
+    inputs.forEach(input => {
       const actionText = input.value.trim();
       const creator = input.dataset.creator;
       if(actionText){
         actionsRef.child(MJId).push({
           text: actionText,
-          createdBy: creator
+          createdBy: creator,
+          done: false
         });
       }
     });
-    alert("Actions du MJ créées !");
+
+    // Créer aussi 3 actions pour chaque autre joueur
+    playerIds.forEach(id => {
+      if(id === MJId) return;
+      for(let i=1; i<=3; i++){
+        actionsRef.child(id).push({
+          text: "Action "+i,
+          createdBy: MJId,
+          done: false
+        });
+      }
+    });
+
     actionsPhaseDiv.style.display = "none";
+    startBingo();
   };
 }
 
-// Supprimer joueur quand il quitte
+// ----------------- Affichage Bingo -----------------
+function startBingo(){
+  const bingoContainer = document.createElement("div");
+  bingoContainer.id = "bingoContainer";
+  waitingDiv.appendChild(bingoContainer);
+
+  actionsRef.on('value', snapshot => {
+    bingoContainer.innerHTML = "";
+
+    const allActions = snapshot.val();
+    if(!allActions) return;
+
+    Object.keys(allActions).forEach(player => {
+      const playerActions = allActions[player];
+      const playerDiv = document.createElement("div");
+      playerDiv.className = "playerActions";
+      const title = document.createElement("h3");
+      title.textContent = allActions[player] ? Object.values(allActions[player])[0]?.pseudo || player : player;
+      playerDiv.appendChild(title);
+
+      Object.keys(playerActions).forEach(aid => {
+        const action = playerActions[aid];
+
+        // Chaque joueur ne voit pas ses propres actions
+        if(player === playerId) return;
+
+        const actionDiv = document.createElement("div");
+        actionDiv.textContent = action.text;
+        actionDiv.style.textDecoration = action.done ? "line-through" : "none";
+        actionDiv.style.cursor = "pointer";
+
+        actionDiv.onclick = () => {
+          if(!action.done){
+            actionsRef.child(player).child(aid).update({done: true});
+            new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
+          }
+        };
+
+        playerDiv.appendChild(actionDiv);
+      });
+
+      bingoContainer.appendChild(playerDiv);
+    });
+  });
+}
+
+// ----------------- Supprimer joueur quand il quitte -----------------
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
 
-});
 
 
