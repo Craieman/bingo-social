@@ -26,8 +26,8 @@ readyBtn.onclick = () => {
   const file = avatarInput.files[0];
   totalPlayers = parseInt(totalPlayersInput.value);
 
-  if (!pseudo || !file || !totalPlayers || totalPlayers < 10) {
-    alert("Pseudo, photo et nombre de joueurs (minimum 10) sont obligatoires !");
+  if (!pseudo || !file || !totalPlayers || totalPlayers < 2) {
+    alert("Pseudo, photo et nombre de joueurs (minimum 2) sont obligatoires !");
     return;
   }
 
@@ -211,3 +211,4 @@ function startBingo(){
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
+
