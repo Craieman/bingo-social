@@ -1,30 +1,29 @@
-document.getElementById("createRoom").onclick = () => {
-  alert("Créer un salon (bientôt)");
-};
-
-document.getElementById("joinRoom").onclick = () => {
-  alert("Rejoindre un salon (bientôt)");
-
-};
-
 let avatars = [];
 
 document.getElementById("ready").onclick = () => {
   const pseudo = document.getElementById("pseudo").value;
-  const avatarFile = document.getElementById("avatar").files[0];
+  const avatarInput = document.getElementById("avatar");
 
-  if (!pseudo || !avatarFile) {
+  if (!pseudo || !avatarInput.files || avatarInput.files.length === 0) {
     alert("Entre ton pseudo et choisis une photo !");
     return;
   }
 
-  // Lire l'image pour l'afficher localement
-  const reader = new FileReader();
-  reader.onload = function(e) {
-    avatars.push({ pseudo, src: e.target.result });
-    showWaitingRoom();
-  };
-  reader.readAsDataURL(avatarFile);
+  const avatarFile = avatarInput.files[0];
+
+  // Vérifie que c'est bien une image
+  if (!avatarFile.type.startsWith("image/")) {
+    alert("Choisis un fichier image !");
+    return;
+  }
+
+  // Crée un objet URL au lieu de FileReader (plus fiable sur mobile)
+  const avatarURL = URL.createObjectURL(avatarFile);
+
+  avatars.push({ pseudo, src: avatarURL });
+
+  // Affiche la waiting room
+  showWaitingRoom();
 };
 
 function showWaitingRoom() {
@@ -33,6 +32,7 @@ function showWaitingRoom() {
 
   const container = document.getElementById("avatarsContainer");
   container.innerHTML = "";
+
   avatars.forEach(player => {
     const img = document.createElement("img");
     img.src = player.src;
