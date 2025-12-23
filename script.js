@@ -24,10 +24,11 @@ readyBtn.onclick = () => {
   const file = avatarInput.files[0];
   totalPlayers = parseInt(totalPlayersInput.value);
 
-  if (!pseudo || !file || !totalPlayers) {
-    alert("Pseudo, photo et nombre de joueurs sont obligatoires !");
+  if (!pseudo || !file || !totalPlayers || totalPlayers < 10) {
+    alert("Pseudo, photo et nombre de joueurs (minimum 10) sont obligatoires !");
     return;
   }
+
   if (!file.type.startsWith("image/")) {
     alert("Choisis un fichier image !");
     return;
@@ -67,7 +68,7 @@ playersRef.on('value', snapshot => {
 
   // Vérifier si le lobby est complet
   const total = Object.keys(players).length;
-  lobbyRef.child('totalPlayers').once('value', snap => {
+  lobbyRef.child('totalPlayers').once('value').then(snap => {
     const totalExpected = snap.val();
     if(totalExpected && total === totalExpected){
       initMJActions(players);
@@ -82,8 +83,8 @@ function initMJActions(players){
   actionsInitialized = true;
 
   const playerIds = Object.keys(players);
-  const MJId = playerIds[0]; // MJ par défaut = premier joueur
-  const N = 3; // nombre d'actions du MJ
+  const MJId = playerIds[0]; // MJ = premier joueur
+  const N = 3;
   const candidates = playerIds.filter(id => id !== MJId);
   const selected = [];
 
@@ -119,12 +120,12 @@ function initMJActions(players){
       }
     });
 
-    // Créer aussi 3 actions pour chaque autre joueur
+    // 3 actions pré-remplies pour les autres joueurs
     playerIds.forEach(id => {
       if(id === MJId) return;
       for(let i=1; i<=3; i++){
         actionsRef.child(id).push({
-          text: "Action "+i,
+          text: "Action " + i,
           createdBy: MJId,
           done: false
         });
@@ -136,48 +137,57 @@ function initMJActions(players){
   };
 }
 
-// ----------------- Affichage Bingo -----------------
+// ----------------- Bingo temps réel -----------------
 function startBingo(){
-  const bingoContainer = document.createElement("div");
-  bingoContainer.id = "bingoContainer";
-  waitingDiv.appendChild(bingoContainer);
+  let bingoContainer = document.getElementById("bingoContainer");
+  if(!bingoContainer){
+    bingoContainer = document.createElement("div");
+    bingoContainer.id = "bingoContainer";
+    waitingDiv.appendChild(bingoContainer);
+  }
 
   actionsRef.on('value', snapshot => {
     bingoContainer.innerHTML = "";
-
     const allActions = snapshot.val();
     if(!allActions) return;
 
     Object.keys(allActions).forEach(player => {
       const playerActions = allActions[player];
+      if(!playerActions) return;
+
       const playerDiv = document.createElement("div");
       playerDiv.className = "playerActions";
-      const title = document.createElement("h3");
-      title.textContent = allActions[player] ? Object.values(allActions[player])[0]?.pseudo || player : player;
-      playerDiv.appendChild(title);
 
-      Object.keys(playerActions).forEach(aid => {
-        const action = playerActions[aid];
+      // récupérer pseudo depuis playersRef
+      playersRef.child(player).once('value').then(pSnap => {
+        const pData = pSnap.val();
+        const title = document.createElement("h3");
+        title.textContent = pData?.pseudo || player;
+        playerDiv.appendChild(title);
 
-        // Chaque joueur ne voit pas ses propres actions
-        if(player === playerId) return;
+        Object.keys(playerActions).forEach(aid => {
+          const action = playerActions[aid];
 
-        const actionDiv = document.createElement("div");
-        actionDiv.textContent = action.text;
-        actionDiv.style.textDecoration = action.done ? "line-through" : "none";
-        actionDiv.style.cursor = "pointer";
+          // Ne pas afficher les actions du joueur courant
+          if(player === playerId) return;
 
-        actionDiv.onclick = () => {
-          if(!action.done){
-            actionsRef.child(player).child(aid).update({done: true});
-            new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
-          }
-        };
+          const actionDiv = document.createElement("div");
+          actionDiv.textContent = action.text;
+          actionDiv.style.textDecoration = action.done ? "line-through" : "none";
+          actionDiv.style.cursor = "pointer";
 
-        playerDiv.appendChild(actionDiv);
+          actionDiv.onclick = () => {
+            if(!action.done){
+              actionsRef.child(player).child(aid).update({done:true});
+              new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
+            }
+          };
+
+          playerDiv.appendChild(actionDiv);
+        });
+
+        bingoContainer.appendChild(playerDiv);
       });
-
-      bingoContainer.appendChild(playerDiv);
     });
   });
 }
@@ -186,6 +196,4 @@ function startBingo(){
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
-
-
 
