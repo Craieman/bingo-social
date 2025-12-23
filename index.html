@@ -8,17 +8,26 @@
 </head>
 <body>
 
-  <div class="app">
-    <h1>🎯 Bingo Social</h1>
+ <div class="app">
+  <h1>🎯 Soshl Party</h1>
 
-    <p class="privacy">
-      🔒 Pas de compte • Aucune donnée personnelle • Jeu temporaire entre amis
-    </p>
+  <p class="privacy">
+    🔒 Pas de compte • Aucune donnée personnelle • Jeu temporaire entre amis
+  </p>
 
-    <button id="createRoom">Créer un salon</button>
-    <button id="joinRoom">Rejoindre un salon</button>
+  <div id="lobby">
+    <input type="text" id="pseudo" placeholder="Ton pseudo" />
+    <input type="file" id="avatar" accept="image/*" capture="user" />
+    <button id="ready">Je suis prêt !</button>
   </div>
+
+  <div id="waiting" style="display:none;">
+    <p>En attente des autres joueurs…</p>
+    <div id="avatarsContainer"></div>
+  </div>
+</div>
 
   <script src="script.js"></script>
 </body>
+
 </html>
