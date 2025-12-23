@@ -17,6 +17,7 @@ const lobbyRef = firebase.database().ref('lobby');
 const actionsRef = firebase.database().ref('lobby/actions');
 
 let totalPlayers = 0;
+let playerNamesCache = {}; // cache des pseudos
 
 // ----------------- Rejoindre le lobby -----------------
 readyBtn.onclick = () => {
@@ -48,6 +49,9 @@ readyBtn.onclick = () => {
     });
 
     lobbyRef.child('totalPlayers').set(totalPlayers);
+
+    // Mettre à jour le cache pour ce joueur
+    playerNamesCache[playerId] = pseudo;
   };
   reader.readAsDataURL(file);
 };
@@ -64,6 +68,9 @@ playersRef.on('value', snapshot => {
     img.src = player.avatar;
     img.title = player.pseudo;
     avatarsContainer.appendChild(img);
+
+    // Mettre à jour cache pseudos
+    playerNamesCache[id] = player.pseudo;
   });
 
   // Vérifier si le lobby est complet
@@ -98,7 +105,7 @@ function initMJActions(players){
 
   selected.forEach(id => {
     const p = document.createElement("p");
-    p.textContent = players[id].pseudo + " écrit une action pour le MJ";
+    p.textContent = playerNamesCache[id] + " écrit une action pour le MJ";
     const input = document.createElement("input");
     input.type = "text";
     input.dataset.creator = id;
@@ -158,36 +165,30 @@ function startBingo(){
       const playerDiv = document.createElement("div");
       playerDiv.className = "playerActions";
 
-      // récupérer pseudo depuis playersRef
-      playersRef.child(player).once('value').then(pSnap => {
-        const pData = pSnap.val();
-        const title = document.createElement("h3");
-        title.textContent = pData?.pseudo || player;
-        playerDiv.appendChild(title);
+      const title = document.createElement("h3");
+      title.textContent = playerNamesCache[player] || player;
+      playerDiv.appendChild(title);
 
-        Object.keys(playerActions).forEach(aid => {
-          const action = playerActions[aid];
+      Object.keys(playerActions).forEach(aid => {
+        const action = playerActions[aid];
+        if(player === playerId) return; // pas ses propres actions
 
-          // Ne pas afficher les actions du joueur courant
-          if(player === playerId) return;
+        const actionDiv = document.createElement("div");
+        actionDiv.textContent = action.text;
+        actionDiv.style.textDecoration = action.done ? "line-through" : "none";
+        actionDiv.style.cursor = "pointer";
 
-          const actionDiv = document.createElement("div");
-          actionDiv.textContent = action.text;
-          actionDiv.style.textDecoration = action.done ? "line-through" : "none";
-          actionDiv.style.cursor = "pointer";
+        actionDiv.onclick = () => {
+          if(!action.done){
+            actionsRef.child(player).child(aid).update({done:true});
+            new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
+          }
+        };
 
-          actionDiv.onclick = () => {
-            if(!action.done){
-              actionsRef.child(player).child(aid).update({done:true});
-              new Audio("https://www.myinstants.com/media/sounds/cash.mp3").play();
-            }
-          };
-
-          playerDiv.appendChild(actionDiv);
-        });
-
-        bingoContainer.appendChild(playerDiv);
+        playerDiv.appendChild(actionDiv);
       });
+
+      bingoContainer.appendChild(playerDiv);
     });
   });
 }
