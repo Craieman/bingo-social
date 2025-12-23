@@ -27,7 +27,28 @@
   </div>
 </div>
 
-  <script src="script.js"></script>
+<!-- Firebase App (core) -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<!-- Firebase Realtime Database -->
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+
+<script>
+  // Configuration Firebase
+  const firebaseConfig = {
+    apiKey: "AIzaSyBRTWkR6m8UDIv1uf6k2Qfeh6srRyveirE",
+    authDomain: "soshl-party.firebaseapp.com",
+    projectId: "soshl-party",
+    storageBucket: "soshl-party.firebasestorage.app",
+    messagingSenderId: "648718374120",
+    appId: "1:648718374120:web:24b8bbe3b97c934f5d255d"
+  };
+
+  // Initialiser Firebase
+  firebase.initializeApp(firebaseConfig);
+  const database = firebase.database();
+</script>
+
+<script src="script.js"></script>
 </body>
 
 </html>
