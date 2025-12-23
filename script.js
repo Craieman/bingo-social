@@ -22,7 +22,7 @@ readyBtn.onclick = () => {
     return;
   }
 
-  // Afficher waiting room
+  // Afficher la waiting room
   lobbyDiv.style.display = "none";
   waitingDiv.style.display = "block";
 
@@ -30,7 +30,11 @@ readyBtn.onclick = () => {
   const reader = new FileReader();
 
   reader.onload = function(e) {
-    const avatarBase64 = e.target.result; // La vraie image convertie
+    const avatarBase64 = e.target.result;
+
+    // 🔹 Console log pour vérifier la conversion
+    console.log("Avatar base64 :", avatarBase64.slice(0,50)); // affiche seulement les 50 premiers caractères
+
     // Envoyer pseudo + avatar à Firebase
     playersRef.child(playerId).set({
       pseudo: pseudo,
@@ -44,7 +48,7 @@ readyBtn.onclick = () => {
     alert("Erreur lors de la lecture de l'image. Réessaie !");
   };
 
-  reader.readAsDataURL(file); // <-- ceci convertit en base64
+  reader.readAsDataURL(file); // conversion en base64
 };
 
 // Afficher les avatars en temps réel
@@ -56,7 +60,7 @@ playersRef.on('value', snapshot => {
   Object.keys(players).forEach(id => {
     const player = players[id];
     const img = document.createElement("img");
-    img.src = player.avatar; // base64 affiché directement
+    img.src = player.avatar;
     img.title = player.pseudo;
     avatarsContainer.appendChild(img);
   });
@@ -66,3 +70,4 @@ playersRef.on('value', snapshot => {
 window.addEventListener("beforeunload", () => {
   playersRef.child(playerId).remove();
 });
+
